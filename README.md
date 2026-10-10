@@ -24,9 +24,10 @@ Credits: AzzyC, khargosxh18, OrangeFox team.
      touch reset, `prune_historic_logs.sh`.
    - `payload-dumper-go` for parallel payload extraction.
    - See `high-speed.md` for benchmarks.
-   - Note: full engine lives in bootable/vendor fork; this tree uses
-     stock `OrangeFox16 16.0` manifest. Point sync to a custom fork
-     if you have one.
+   - Note: verified against khargosxh18's own builder
+     (`Actions-Build-OrangeFox`), which uses the stock manifest with
+     no bootable/vendor fork overrides — device-tree side is all
+     that's needed. This tree therefore uses stock `OrangeFox16 16.0`.
 ## Extras kept from khargos:16
 
 - `sepolicy/recovery/`, `formatdata.sh` marker, `rebootsystem.sh`

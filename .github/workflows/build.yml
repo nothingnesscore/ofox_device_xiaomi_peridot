@@ -46,14 +46,13 @@ jobs:
 
       - name: Sync OrangeFox16 manifest
         run: |
-          mkdir -p fox_16.0
-          cd fox_16.0
-          git clone https://github.com/OrangeFox16/sync.git -b master /tmp/ofsync
-          chmod +x /tmp/ofsync/orangefox_sync.sh
-          /tmp/ofsync/orangefox_sync.sh \
+          git clone https://github.com/OrangeFox16/sync.git -b master $GITHUB_WORKSPACE/ofsync
+          chmod +x $GITHUB_WORKSPACE/ofsync/orangefox_sync.sh
+          cd $GITHUB_WORKSPACE/ofsync
+          ./orangefox_sync.sh \
             --branch ${{ env.MANIFEST_BRANCH }} \
             --path $GITHUB_WORKSPACE/fox_16.0
-        timeout-minutes: 120
+        timeout-minutes: 180
 
       - name: Copy device tree in
         run: |
