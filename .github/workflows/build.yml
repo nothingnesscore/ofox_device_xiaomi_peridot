@@ -1,0 +1,94 @@
+name: Build OrangeFox peridot (Android 16)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [fox_16.0]
+    paths-ignore: ['**.md']
+  release:
+    types: [created]
+
+env:
+  DEVICE: peridot
+  MANIFEST_BRANCH: "16.0"
+  DT_PATH: device/xiaomi/peridot
+  BUILD_TARGET: recoveryimage
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout device tree
+        uses: actions/checkout@v4
+        with:
+          path: dt
+
+      - name: Free disk space
+        run: |
+          sudo apt-get -y purge azure-cli ghc* zulu* llvm* firefox \
+            google* dotnet* powershell openjdk* mysql* php* || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
+            /opt/ghc /opt/hostedtoolcache 2>/dev/null || true
+          df -h
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y git-core gnupg flex bison \
+            build-essential zip curl zlib1g-dev gcc-multilib \
+            g++-multilib libc6-dev-i386 lib32ncurses5-dev \
+            x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
+            libxml2-utils xsltproc unzip fontconfig python3 \
+            python3-pip ccache repo rsync aria2
+      - name: Configure git
+        run: |
+          git config --global user.name "nothingnesscore"
+          git config --global user.email "patrakaustav99@gmail.com"
+
+      - name: Sync OrangeFox16 manifest
+        run: |
+          mkdir -p fox_16.0
+          cd fox_16.0
+          git clone https://github.com/OrangeFox16/sync.git -b master /tmp/ofsync
+          chmod +x /tmp/ofsync/orangefox_sync.sh
+          /tmp/ofsync/orangefox_sync.sh \
+            --branch ${{ env.MANIFEST_BRANCH }} \
+            --path $GITHUB_WORKSPACE/fox_16.0
+        timeout-minutes: 120
+
+      - name: Copy device tree in
+        run: |
+          rm -rf fox_16.0/${{ env.DT_PATH }}
+          mkdir -p fox_16.0/${{ env.DT_PATH }}
+          cp -a dt/. fox_16.0/${{ env.DT_PATH }}/
+          ls fox_16.0/${{ env.DT_PATH }}
+      - name: Build recoveryimage
+        working-directory: fox_16.0
+        run: |
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export LC_ALL=C
+          source build/envsetup.sh
+          lunch twrp_${{ env.DEVICE }}-eng
+          mka -j$(nproc --all) ${{ env.BUILD_TARGET }}
+        timeout-minutes: 360
+
+      - name: Collect outputs
+        run: |
+          OUT=fox_16.0/out/target/product/${{ env.DEVICE }}
+          ls -lh $OUT || true
+          mkdir -p artifacts
+          cp -v $OUT/recovery.img artifacts/ || true
+          cp -v $OUT/OrangeFox-*.zip artifacts/ 2>/dev/null || true
+          cp -v $OUT/*.zip.md5 artifacts/ 2>/dev/null || true
+          ls -lh artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrangeFox-peridot-16.0
+          path: artifacts/*
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
