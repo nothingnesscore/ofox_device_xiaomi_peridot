@@ -66,6 +66,14 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           export LC_ALL=C
           source build/envsetup.sh
+          # Diagnose product resolution (reveals the real error
+          # if check_product inside lunch cannot see twrp_peridot)
+          echo "=== device tree ==="; ls ${{ env.DT_PATH }}
+          echo "=== dumpvars TARGET_DEVICE ==="
+          TARGET_PRODUCT=twrp_${{ env.DEVICE }} TARGET_RELEASE=bp2a \
+            TARGET_BUILD_VARIANT=eng TARGET_BUILD_TYPE=release \
+            TARGET_BUILD_APPS= \
+            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit:$?"
           # Android 16 uses <product>-<release>-<variant>;
           # bp2a is the Android 16 release infix
           lunch twrp_${{ env.DEVICE }}-bp2a-eng
