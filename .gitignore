@@ -3,3 +3,5 @@
 *.md5
 out/
  Fox/
+# but keep the shipped DFE addon
+!recovery/root/FFiles/DFE.zip
