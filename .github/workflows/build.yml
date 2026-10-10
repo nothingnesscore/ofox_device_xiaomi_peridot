@@ -66,7 +66,9 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           export LC_ALL=C
           source build/envsetup.sh
-          lunch twrp_${{ env.DEVICE }}-eng
+          # Android 16 uses <product>-<release>-<variant>;
+          # bp2a is the Android 16 release infix
+          lunch twrp_${{ env.DEVICE }}-bp2a-eng
           mka -j$(nproc --all) ${{ env.BUILD_TARGET }}
         timeout-minutes: 360
 
