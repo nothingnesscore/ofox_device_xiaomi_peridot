@@ -34,6 +34,13 @@ if [ -z "$FOX_BUILD_DEVICE" ]; then
 	fox_get_target_device
 fi
 
+# Lunch combos for Android 16 (<product>-<release>-<variant>;
+# bp2a = Android 16). Declared unconditionally so TWRP lunch
+# registers this device instead of hitting roomservice.
+add_lunch_combo twrp_peridot-bp2a-user
+add_lunch_combo twrp_peridot-bp2a-userdebug
+add_lunch_combo twrp_peridot-bp2a-eng
+
 if [ "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 	echo "Detected build device: $FOX_BUILD_DEVICE"
 
