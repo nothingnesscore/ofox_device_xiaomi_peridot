@@ -19,8 +19,9 @@
 
 PRODUCT_MAKEFILES := $(LOCAL_DIR)/twrp_peridot.mk
 
+# Android 16 requires <product>-<release>-<variant> (bp2a = Android 16)
 COMMON_LUNCH_CHOICES := \
-    twrp_peridot-user \
-    twrp_peridot-userdebug \
-    twrp_peridot-eng
+    twrp_peridot-bp2a-user \
+    twrp_peridot-bp2a-userdebug \
+    twrp_peridot-bp2a-eng
 #
