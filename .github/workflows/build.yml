@@ -25,10 +25,20 @@ jobs:
       - name: Free disk space
         run: |
           sudo apt-get -y purge azure-cli ghc* zulu* llvm* firefox \
-            google* dotnet* powershell openjdk* mysql* php* || true
+            google* dotnet* powershell openjdk* mysql* php* \
+            mongodb* postgresql* snapd samba* reportbug || true
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
-            /opt/ghc /opt/hostedtoolcache 2>/dev/null || true
-          df -h
+            /opt/ghc /opt/hostedtoolcache /usr/local/share/powershell \
+            /usr/share/swift /opt/microsoft /usr/lib/mono \
+            /usr/share/gradle* /usr/local/julia* /opt/julia \
+            /opt/pipx /usr/local/n /opt/node* \
+            /var/lib/snapd /snap /var/cache/snapd \
+            /usr/share/az* /opt/az 2>/dev/null || true
+          docker system prune -af 2>/dev/null || true
+          sudo apt-get autoremove -y || true
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/* 2>/dev/null || true
+          echo "=== disk after slimming ==="; df -h /
 
       - name: Swap space (soong bootstrap needs headroom on 16GB runners)
         uses: pierotofy/set-swap-space@master
@@ -43,7 +53,8 @@ jobs:
             g++-multilib libc6-dev-i386 lib32ncurses5-dev \
             x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
             libxml2-utils xsltproc unzip fontconfig python3 \
-            python3-pip ccache repo rsync aria2
+            python3-pip ccache repo rsync aria2 openjdk-17-jdk
+          java -version
       - name: Configure git
         run: |
           git config --global user.name "nothingnesscore"
@@ -65,6 +76,9 @@ jobs:
           mkdir -p fox_16.0/${{ env.DT_PATH }}
           cp -a dt/. fox_16.0/${{ env.DT_PATH }}/
           ls fox_16.0/${{ env.DT_PATH }}
+          echo "=== disk after sync+tree ==="; df -h /
+          echo "=== sync size ==="; du -sh fox_16.0
+          echo "=== memory ==="; free -h
       - name: Build recoveryimage
         working-directory: fox_16.0
         run: |
@@ -84,7 +98,19 @@ jobs:
           # Android 16 uses <product>-<release>-<variant>;
           # bp2a is the Android 16 release infix
           lunch twrp_${{ env.DEVICE }}-bp2a-eng
-          mka -j$(nproc --all) ${{ env.BUILD_TARGET }}
+          # Resource monitor: if the runner dies again, the streamed
+          # df/free trail shows whether disk or memory ran out.
+          ( while true; do echo "--- mon $(date -u +%H:%M:%S) ---"; df -h / | tail -1; free -h | sed -n '2p;3p'; sleep 180; done ) &
+          MONPID=$!
+          # -j3: previous -j$(nproc) run lost the runner mid-compile
+          # (CPU/memory starvation); trade speed for stability.
+          set +e
+          mka -j3 ${{ env.BUILD_TARGET }}
+          RC=$?
+          set -e
+          kill $MONPID || true
+          echo "mka-exit:$RC"
+          exit $RC
         timeout-minutes: 360
 
       - name: Collect outputs
