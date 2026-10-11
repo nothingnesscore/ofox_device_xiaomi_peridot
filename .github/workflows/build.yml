@@ -98,15 +98,26 @@ jobs:
           # Android 16 uses <product>-<release>-<variant>;
           # bp2a is the Android 16 release infix
           lunch twrp_${{ env.DEVICE }}-bp2a-eng
-          # Resource monitor: if the runner dies again, the streamed
-          # df/free trail shows whether disk or memory ran out.
-          ( while true; do echo "--- mon $(date -u +%H:%M:%S) ---"; df -h / | tail -1; free -h | sed -n '2p;3p'; sleep 180; done ) &
+          # Heartbeat: dead runners lose their logs, so push resource
+          # snapshots to the ci-heartbeat branch every 8 min. Survives
+          # runner death; shows disk vs memory pressure trend.
+          HB=$GITHUB_WORKSPACE/dt
+          git -C $HB checkout -B ci-heartbeat
+          ( while true; do sleep 480;
+            { echo "## $(date -u)"; echo "### df"; df -h /;
+              echo "### free"; free -h; echo "### out"; du -sh out 2>/dev/null;
+              echo "### build tail"; tail -20 build.log 2>/dev/null; } > $HB/heartbeat.md
+            git -C $HB add heartbeat.md
+            git -C $HB -c user.name=ci-heartbeat -c user.email=ci@localhost \
+              commit -m "heartbeat $(date -u +%H:%M)" >/dev/null 2>&1 || true
+            git -C $HB push origin ci-heartbeat >/dev/null 2>&1 || true
+          done ) &
           MONPID=$!
-          # -j3: previous -j$(nproc) run lost the runner mid-compile
-          # (CPU/memory starvation); trade speed for stability.
+          # -j2: runners kept dying ~1h into compile at -j4/-j3
+          # (lost communication); trade speed for stability.
           set +e
-          mka -j3 ${{ env.BUILD_TARGET }}
-          RC=$?
+          mka -j2 ${{ env.BUILD_TARGET }} 2>&1 | tee build.log
+          RC=${PIPESTATUS[0]}
           set -e
           kill $MONPID || true
           echo "mka-exit:$RC"
