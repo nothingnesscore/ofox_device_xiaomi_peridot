@@ -69,11 +69,19 @@ jobs:
           # Diagnose product resolution (reveals the real error
           # if check_product inside lunch cannot see twrp_peridot)
           echo "=== device tree ==="; ls ${{ env.DT_PATH }}
-          echo "=== dumpvars TARGET_DEVICE ==="
+          set +e
+          echo "=== dumpvars TARGET_DEVICE (baseline) ==="
           TARGET_PRODUCT=twrp_${{ env.DEVICE }} TARGET_RELEASE=bp2a \
             TARGET_BUILD_VARIANT=eng TARGET_BUILD_TYPE=release \
             TARGET_BUILD_APPS= \
-            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit:$?"
+            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit-baseline:$?"
+          echo "=== denylist experiment: disable magisk-prebuilt Android.mk ==="
+          mv external/magisk-prebuilt/Android.mk external/magisk-prebuilt/Android.mk.disabled
+          TARGET_PRODUCT=twrp_${{ env.DEVICE }} TARGET_RELEASE=bp2a \
+            TARGET_BUILD_VARIANT=eng TARGET_BUILD_TYPE=release \
+            TARGET_BUILD_APPS= \
+            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit-nomagiskmk:$?"
+          set -e
           # Android 16 uses <product>-<release>-<variant>;
           # bp2a is the Android 16 release infix
           lunch twrp_${{ env.DEVICE }}-bp2a-eng
