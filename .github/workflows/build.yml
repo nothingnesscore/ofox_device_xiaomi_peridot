@@ -30,6 +30,11 @@ jobs:
             /opt/ghc /opt/hostedtoolcache 2>/dev/null || true
           df -h
 
+      - name: Swap space (soong bootstrap needs headroom on 16GB runners)
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 16
+
       - name: Install build deps
         run: |
           sudo apt-get update -y
@@ -69,19 +74,13 @@ jobs:
           # Diagnose product resolution (reveals the real error
           # if check_product inside lunch cannot see twrp_peridot)
           echo "=== device tree ==="; ls ${{ env.DT_PATH }}
-          set +e
-          echo "=== dumpvars TARGET_DEVICE (baseline) ==="
-          TARGET_PRODUCT=twrp_${{ env.DEVICE }} TARGET_RELEASE=bp2a \
-            TARGET_BUILD_VARIANT=eng TARGET_BUILD_TYPE=release \
-            TARGET_BUILD_APPS= \
-            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit-baseline:$?"
-          echo "=== denylist experiment: disable magisk-prebuilt Android.mk ==="
+          # TWRP-Test/android_build (twrp-16.0) denylists
+          # external/magisk-prebuilt/Android.mk: its presence makes
+          # product resolution (check_product/dumpvars) fail, so lunch
+          # falls through to roomservice. Binaries stay, only the
+          # makefile is disabled. Verified: dumpvars TARGET_DEVICE
+          # fails with it present, succeeds without it.
           mv external/magisk-prebuilt/Android.mk external/magisk-prebuilt/Android.mk.disabled
-          TARGET_PRODUCT=twrp_${{ env.DEVICE }} TARGET_RELEASE=bp2a \
-            TARGET_BUILD_VARIANT=eng TARGET_BUILD_TYPE=release \
-            TARGET_BUILD_APPS= \
-            build/soong/soong_ui.bash --dumpvar-mode TARGET_DEVICE; echo "dumpvar-exit-nomagiskmk:$?"
-          set -e
           # Android 16 uses <product>-<release>-<variant>;
           # bp2a is the Android 16 release infix
           lunch twrp_${{ env.DEVICE }}-bp2a-eng
