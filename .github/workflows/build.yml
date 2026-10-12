@@ -16,6 +16,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout device tree
         uses: actions/checkout@v4
@@ -40,10 +42,10 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/* 2>/dev/null || true
           echo "=== disk after slimming ==="; df -h /
 
-      - name: Swap space (soong bootstrap needs headroom on 16GB runners)
+      - name: Swap space (small safety net; big swapfiles eat build disk)
         uses: pierotofy/set-swap-space@master
         with:
-          swap-size-gb: 16
+          swap-size-gb: 4
 
       - name: Install build deps
         run: |
@@ -76,8 +78,11 @@ jobs:
           mkdir -p fox_16.0/${{ env.DT_PATH }}
           cp -a dt/. fox_16.0/${{ env.DT_PATH }}/
           ls fox_16.0/${{ env.DT_PATH }}
+          # .repo (manifest + git object cache) is not needed to build;
+          # dropping it reclaims tens of GB for out/. Sync was 70G+.
+          rm -rf fox_16.0/.repo
           echo "=== disk after sync+tree ==="; df -h /
-          echo "=== sync size ==="; du -sh fox_16.0
+          echo "=== sync size (no .repo) ==="; du -sh fox_16.0
           echo "=== memory ==="; free -h
       - name: Build recoveryimage
         working-directory: fox_16.0
@@ -110,7 +115,7 @@ jobs:
             git -C $HB add heartbeat.md
             git -C $HB -c user.name=ci-heartbeat -c user.email=ci@localhost \
               commit -m "heartbeat $(date -u +%H:%M)" >/dev/null 2>&1 || true
-            git -C $HB push origin ci-heartbeat >/dev/null 2>&1 || true
+            git -C $HB push --force origin ci-heartbeat 2>&1 | tail -2 || echo PUSH_FAILED
           done ) &
           MONPID=$!
           # -j2: runners kept dying ~1h into compile at -j4/-j3
